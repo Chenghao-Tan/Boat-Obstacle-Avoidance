@@ -46,11 +46,12 @@ void obstacle_avoidance::loop()
                 }
                 */
 
-                uint16_t raw_data[GRID_NUM * 4]; // label, x, y, z
-                grid grids[GRID_NUM];
+                uint16_t *raw_data = (uint16_t *)malloc(GRID_NUM * 4 * sizeof(uint16_t)); // label, x, y, z
+                grid *grids = (grid *)malloc(GRID_NUM * sizeof(grid));
                 // if (sizeof(raw_data) <= NNDataMsg.raw_data.size)
-                memcpy(raw_data, NNDataMsg.raw_data.data, sizeof(raw_data));
+                memcpy(raw_data, NNDataMsg.raw_data.data, GRID_NUM * 4 * sizeof(uint16_t));
 
+                // Convert raw FP16 (in bits) to float
                 for (int i = 0; i < GRID_NUM * 4; i++)
                 {
                     _float16_shape_type temp;
@@ -58,12 +59,16 @@ void obstacle_avoidance::loop()
                     *((float *)grids + i) = float16_to_float32(temp);
                 }
 
+                // Send obstacle locations
                 for (int i = 0; i < GRID_NUM; i++)
                 {
                     if (grids[i].label != 0) // Not background
                         send_obs_dist_3d(msg_ms, grids[i].x, grids[i].y, grids[i].z);
-                    // printf("label:%d, x:%.1fm, y:%.1fm, z:%.1fm\n", int(grids[i].label), grids[i].x, grids[i].y, grids[i].z); // For debug
+                    printf("label:%d, x:%.1fm, y:%.1fm, z:%.1fm\n", int(grids[i].label), grids[i].x, grids[i].y, grids[i].z); // For debug
                 }
+
+                free(raw_data);
+                free(grids);
             }
 
             // free up resources once you're done with the message.
