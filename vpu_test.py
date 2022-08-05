@@ -26,6 +26,8 @@ class FPSHandler:
 
 
 with dai.Device() as device:
+    device.setLogLevel(dai.LogLevel.DEBUG)
+    device.setLogOutputLevel(dai.LogLevel.DEBUG)
     device.startPipeline(create_pipeline(XLink=True))
     q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)  # type: ignore
     q_img = device.getOutputQueue(name="img", maxSize=4, blocking=False)  # type: ignore

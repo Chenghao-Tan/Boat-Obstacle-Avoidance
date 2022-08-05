@@ -22,7 +22,7 @@ def create_pipeline(XLink=False):
     detection_nn = pipeline.create(dai.node.NeuralNetwork)
     detection_nn.setBlob(blob)
     detection_nn.input.setBlocking(False)
-    detection_nn.setNumInferenceThreads(2)
+    detection_nn.setNumInferenceThreads(1)
     cam.preview.link(detection_nn.inputs["rgb"])
 
     # Left mono camera
