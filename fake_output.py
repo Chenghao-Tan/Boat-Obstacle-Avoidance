@@ -36,4 +36,4 @@ with dai.Device(pipeline) as device:
         nndata = device.getOutputQueue("out").get()  # type: ignore
 
         print(f"NNData size: {len(nndata.getData())}")
-        print("values:", nndata.getData())
+        print(f"values: {nndata.getData()}")
