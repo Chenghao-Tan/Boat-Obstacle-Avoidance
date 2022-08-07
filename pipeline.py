@@ -44,27 +44,13 @@ def create_pipeline(XLink=False):
     # Depth output linked to NN
     stereo.depth.link(detection_nn.inputs["depth"])
 
-    # NN output linked to Script
-    script = pipeline.create(dai.node.Script)
-    script.setScript(
-        """
-        while True:
-            temp = node.io["sin"].get()
-            node.warn("Names of layers: " + str(temp.getAllLayerNames()))
-            buf = NNData(800)
-            buf.setData(temp.getData())
-            node.io["sout"].send(buf)
-        """
-    )
-    detection_nn.out.link(script.inputs["sin"])
-
-    # Script linked to SPIOut
+    # NN output linked to SPIOut
     spi = pipeline.create(dai.node.SPIOut)
     spi.setStreamName("NN")
     spi.setBusId(0)
     spi.input.setBlocking(False)
     spi.input.setQueueSize(2)
-    script.outputs["sout"].link(spi.input)
+    detection_nn.out.link(spi.input)
 
     # NN output linked to XLinkOut (for testing only)
     if XLink:
