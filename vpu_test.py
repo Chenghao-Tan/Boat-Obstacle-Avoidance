@@ -28,7 +28,15 @@ class FPSHandler:
 with dai.Device() as device:
     device.setLogLevel(dai.LogLevel.DEBUG)
     device.setLogOutputLevel(dai.LogLevel.DEBUG)
-    device.startPipeline(create_pipeline(XLink=True))
+
+    try:
+        calibData = device.readCalibration2()
+        lensPosition = calibData.getLensPosition(dai.CameraBoardSocket.RGB)
+        print(f"RGB Cam lensPosition: {lensPosition}")
+    except:
+        raise Exception("Can't get lensPosition")
+
+    device.startPipeline(create_pipeline(XLink=True, lensPosition=lensPosition))
     q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)  # type: ignore
     q_img = device.getOutputQueue(name="img", maxSize=4, blocking=False)  # type: ignore
     q_depth = device.getOutputQueue(name="depth", maxSize=4, blocking=False)  # type: ignore

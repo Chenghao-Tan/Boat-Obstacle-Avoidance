@@ -13,7 +13,7 @@ def flash(bootloader_only=True):
 
         progress = lambda p: print(f"Progress: {p*100:.1f}%")
         if not bootloader_only:
-            pipeline = create_pipeline(XLink=False)
+            pipeline = create_pipeline(XLink=False, lensPosition=lensPosition)
             bootloader.flash(progress, pipeline)
         else:
             bootloader.flashBootloader(progress)
@@ -22,9 +22,22 @@ def flash(bootloader_only=True):
 
 
 def write_image_to_file(filename):
-    pipeline = create_pipeline(XLink=False)
+    pipeline = create_pipeline(XLink=False, lensPosition=lensPosition)
     dai.DeviceBootloader.saveDepthaiApplicationPackage(filename, pipeline)
 
+
+with dai.Device() as device:
+    try:
+        calibData = device.readCalibration2()
+        lensPosition = calibData.getLensPosition(dai.CameraBoardSocket.RGB)
+        print(f"RGB Cam lensPosition: {lensPosition}")
+    except:
+        raise Exception("Can't get lensPosition")
+
+import time
+
+print("Wait 5 seconds for the device to reset...")
+time.sleep(5)
 
 if len(sys.argv) >= 2 and sys.argv[1] == "bootloader":
     print("Flashing bootloader")
