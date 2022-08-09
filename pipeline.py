@@ -30,7 +30,7 @@ def create_pipeline(XLink=False, **kwargs):
     segmentation_nn = pipeline.create(dai.node.NeuralNetwork)
     segmentation_nn.setBlob(blob)
     segmentation_nn.input.setBlocking(False)
-    segmentation_nn.setNumInferenceThreads(2)
+    segmentation_nn.setNumInferenceThreads(0)  # 0 for auto
     cam.preview.link(segmentation_nn.inputs["rgb"])
 
     # Left mono camera
