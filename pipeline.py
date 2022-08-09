@@ -19,11 +19,11 @@ def create_pipeline(XLink=False):
     cam.setInterleaved(False)
 
     # Define a neural network that will make predictions based on the source frames
-    detection_nn = pipeline.create(dai.node.NeuralNetwork)
-    detection_nn.setBlob(blob)
-    detection_nn.input.setBlocking(False)
-    detection_nn.setNumInferenceThreads(1)
-    cam.preview.link(detection_nn.inputs["rgb"])
+    segmentation_nn = pipeline.create(dai.node.NeuralNetwork)
+    segmentation_nn.setBlob(blob)
+    segmentation_nn.input.setBlocking(False)
+    segmentation_nn.setNumInferenceThreads(1)
+    cam.preview.link(segmentation_nn.inputs["rgb"])
 
     # Left mono camera
     left = pipeline.create(dai.node.MonoCamera)
@@ -42,7 +42,7 @@ def create_pipeline(XLink=False):
     right.out.link(stereo.right)
 
     # Depth output linked to NN
-    stereo.depth.link(detection_nn.inputs["depth"])
+    stereo.depth.link(segmentation_nn.inputs["depth"])
 
     # NN output linked to SPIOut
     spi = pipeline.create(dai.node.SPIOut)
@@ -50,18 +50,18 @@ def create_pipeline(XLink=False):
     spi.setBusId(0)
     spi.input.setBlocking(False)
     spi.input.setQueueSize(2)
-    detection_nn.out.link(spi.input)
+    segmentation_nn.out.link(spi.input)
 
     # NN output linked to XLinkOut (for testing only)
     if XLink:
         xout_nn = pipeline.create(dai.node.XLinkOut)
         xout_nn.setStreamName("nn")
-        detection_nn.out.link(xout_nn.input)
+        segmentation_nn.out.link(xout_nn.input)
         xout_img = pipeline.create(dai.node.XLinkOut)
         xout_img.setStreamName("img")
-        detection_nn.passthroughs["rgb"].link(xout_img.input)
+        segmentation_nn.passthroughs["rgb"].link(xout_img.input)
         xout_depth = pipeline.create(dai.node.XLinkOut)
         xout_depth.setStreamName("depth")
-        detection_nn.passthroughs["depth"].link(xout_depth.input)
+        segmentation_nn.passthroughs["depth"].link(xout_depth.input)
 
     return pipeline
