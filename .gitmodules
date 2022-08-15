@@ -1,6 +1,0 @@
-[submodule "components/mavlink/c_library_v2"]
-	path = components/mavlink/c_library_v2
-	url = https://github.com/mavlink/c_library_v2.git
-[submodule "components/depthai-spi-api"]
-	path = components/depthai-spi-api
-	url = https://github.com/luxonis/depthai-spi-api.git
