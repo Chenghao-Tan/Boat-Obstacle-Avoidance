@@ -1,7 +1,7 @@
 import depthai as dai
 
 
-def create_pipeline(XLink=False, **kwargs):
+def create_pipeline(**kwargs):
     blob = dai.OpenVINO.Blob("./640_360_(10_10).blob")  # TODO MODEL PATH
     for name, tensorInfo in blob.networkInputs.items():
         print(name, tensorInfo.dims)
@@ -74,24 +74,19 @@ def create_pipeline(XLink=False, **kwargs):
     # Depth output linked to NN
     stereo.depth.link(segmentation_nn.inputs["depth"])
 
-    # NN output linked to SPIOut
-    spi = pipeline.create(dai.node.SPIOut)
-    spi.setStreamName("NN")
-    spi.setBusId(0)
-    spi.input.setBlocking(False)
-    spi.input.setQueueSize(2)
-    segmentation_nn.out.link(spi.input)
+    # NN output linked to XLinkOut
+    xout_nn = pipeline.create(dai.node.XLinkOut)
+    xout_nn.setStreamName("nn")
+    segmentation_nn.out.link(xout_nn.input)
 
-    # NN output linked to XLinkOut (for testing only)
-    if XLink:
-        xout_nn = pipeline.create(dai.node.XLinkOut)
-        xout_nn.setStreamName("nn")
-        segmentation_nn.out.link(xout_nn.input)
-        xout_img = pipeline.create(dai.node.XLinkOut)
-        xout_img.setStreamName("img")
-        segmentation_nn.passthroughs["rgb"].link(xout_img.input)
-        xout_depth = pipeline.create(dai.node.XLinkOut)
-        xout_depth.setStreamName("depth")
-        segmentation_nn.passthroughs["depth"].link(xout_depth.input)
+    # For test
+    if "passthroughs" in kwargs:
+        if kwargs["passthroughs"] is True:
+            xout_img = pipeline.create(dai.node.XLinkOut)
+            xout_img.setStreamName("img")
+            segmentation_nn.passthroughs["rgb"].link(xout_img.input)
+            xout_depth = pipeline.create(dai.node.XLinkOut)
+            xout_depth.setStreamName("depth")
+            segmentation_nn.passthroughs["depth"].link(xout_depth.input)
 
     return pipeline
