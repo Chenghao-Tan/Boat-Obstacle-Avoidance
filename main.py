@@ -61,7 +61,7 @@ heartbeat_thread.start()
 
 
 # Main
-with dai.Device() as device:
+with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as device:
     try:
         # Getting calibration data
         calibData = device.readCalibration2()
@@ -138,6 +138,7 @@ with dai.Device() as device:
         print(e)
 
     finally:
+        print("Exiting...")
         exit = True
         heartbeat_thread.join()
         connection.close()
