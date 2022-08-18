@@ -1,7 +1,20 @@
 # Boat-Obstacle-Avoidance
 ## Prepare
-- Follow the **Installation** instructions in [depthai repository](https://github.com/luxonis/depthai) to install depthai library.
-- Follow the **Installation** instructions in [pymavlink repository](https://github.com/ArduPilot/pymavlink) to install pymavlink.
+### Software:
+- Python 3.9+ is recommended.
+- Clone this repository, then run in its root:
+    ```console
+    pip install -U --prefer-binary -r requirements.txt
+    ```
+
+### Hardware (raspberry pi):
+- Wiring diagram:
+![Wiring diagram](./doc/diagram.png)
+- Add these to config.txt, then reboot:
+    ```text
+    enable_uart=1
+    dtoverlay=miniuart-bt
+    ```
 
 
 ## Usage
