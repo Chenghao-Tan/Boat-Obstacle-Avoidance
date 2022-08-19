@@ -1,0 +1,32 @@
+# MAVLink Interface
+DEVICE_STR: "/dev/ttyAMA0"
+BAUD_RATE: 115200
+MESSAGE_RATE_MAX: 30  # in Hz
+
+# AI Model Settings
+MODEL_PATH: "./640_360_(10_10).blob"
+GRID_NUM:
+  - 10  # H
+  - 10  # W
+ISP_SCALE:
+  - 1  # numerator
+  - 3  # denominator
+
+# Stereo Mode
+EXTENDED_DISPARITY: False
+SUBPIXEL: True
+
+# Depth Thresholds
+CONFIDENCE_THRESHOLD: 190  # 0-255
+MIN_DISTANCE: 0.35  # in m
+MAX_DISTANCE: 35  # in m
+
+# Depth Post Processing
+# WARNING: MAY SIGNIFICANTLY INCREASE DEPTH MAP'S LATENCY!!!
+DECIMATION_FACTOR: 1
+SPECKLE_FILTER: False
+TEMPORAL_FILTER: False
+SPATIAL_FILTER: False
+
+# Other Settings
+USE_INTRINSIC: True

@@ -1,16 +1,4 @@
 #!/usr/bin/env python
-
-
-GRID_NUM_H = 10  # TODO
-GRID_NUM_W = 10  # TODO
-INPUT_SHAPE = (640, 360)  # TODO
-BAUD_RATE = 115200  # TODO
-DEVICE_STR = "/dev/ttyAMA0"  # TODO
-MSG_RATE_MAX = 30  # TODO in Hz
-MIN_DISTANCE = 0.35  # TODO in m
-MAX_DISTANCE = 35  # TODO in m
-
-
 import os
 
 os.environ["MAVLINK20"] = "1"  # Set MAVLink protocol to 2
@@ -22,15 +10,22 @@ import time
 
 import depthai as dai
 import numpy as np
+import yaml
 from pymavlink import mavutil
 
 from pipeline import create_pipeline
 from z2xy import z2xy_coefficient, z2xy_coefficient_fov
 
+# Reading config
+with open("config.yaml") as f:  # Read only
+    config = yaml.safe_load(f)
+    print(f"Config: {config}")
+
+
 exit = False
 connection = mavutil.mavlink_connection(
-    device=DEVICE_STR,
-    baud=BAUD_RATE,
+    device=config["DEVICE_STR"],
+    baud=config["BAUD_RATE"],
     source_system=1,
     source_component=93,
     autoreconnect=True,
@@ -38,7 +33,7 @@ connection = mavutil.mavlink_connection(
 )
 start_time = int(round(time.time() * 1000))  # in ms
 get_current_time = lambda: int(round(time.time() * 1000) - start_time)  # in ms
-message_interval_min = 1000 / MSG_RATE_MAX  # in ms
+message_interval_min = 1000 / config["MESSAGE_RATE_MAX"]  # in ms
 
 
 # Heartbeat thread
@@ -63,6 +58,12 @@ heartbeat_thread.start()
 # Main
 with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as device:
     try:
+        # Loading blob
+        blob = dai.OpenVINO.Blob(config["MODEL_PATH"])
+        for name, tensorInfo in blob.networkInputs.items():
+            print(name, tensorInfo.dims)
+        INPUT_SHAPE = blob.networkInputs["rgb"].dims[:2]  # Auto INPUT_SHAPE
+
         # Getting calibration data
         calibData = device.readCalibration2()
 
@@ -70,7 +71,7 @@ with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as d
         print(f"RGB Cam lensPosition: {lensPosition}")
 
         intrinsics = calibData.getCameraIntrinsics(
-            dai.CameraBoardSocket.RGB, *INPUT_SHAPE
+            dai.CameraBoardSocket.RGB, *INPUT_SHAPE  # type: ignore
         )
         print(f"RGB Cam intrinsics: {intrinsics}")
 
@@ -78,25 +79,37 @@ with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as d
         print(f"RGB Cam HFOV: {hfov}")
 
         # Generating fixed z to x,y coefficient
-        assert INPUT_SHAPE[1] % GRID_NUM_H == 0
-        assert INPUT_SHAPE[0] % GRID_NUM_W == 0
-        grid_height = INPUT_SHAPE[1] // GRID_NUM_H
-        grid_width = INPUT_SHAPE[0] // GRID_NUM_W
-        # Use intrinsic matrix
-        z2x, z2y = z2xy_coefficient(
-            grid_height, grid_width, GRID_NUM_H, GRID_NUM_W, np.array(intrinsics)
-        )
-        # Use HFOV only
-        """
-        z2x, z2y = z2xy_coefficient_fov(
-            grid_height, grid_width, GRID_NUM_H, GRID_NUM_W, hfov
-        )
-        """
-        z2x = z2x.reshape(GRID_NUM_H, GRID_NUM_W)
-        z2y = z2y.reshape(GRID_NUM_H, GRID_NUM_W)
+        assert INPUT_SHAPE[1] % config["GRID_NUM"][0] == 0
+        assert INPUT_SHAPE[0] % config["GRID_NUM"][1] == 0
+        grid_height = INPUT_SHAPE[1] // config["GRID_NUM"][0]
+        grid_width = INPUT_SHAPE[0] // config["GRID_NUM"][1]
+        if config["USE_INTRINSIC"]:
+            # Use intrinsic matrix
+            z2x, z2y = z2xy_coefficient(
+                grid_height,
+                grid_width,
+                config["GRID_NUM"][0],
+                config["GRID_NUM"][1],
+                np.array(intrinsics),
+            )
+        else:
+            # Use HFOV only
+            z2x, z2y = z2xy_coefficient_fov(
+                grid_height,
+                grid_width,
+                config["GRID_NUM"][0],
+                config["GRID_NUM"][1],
+                hfov,
+            )
+        z2x = z2x.reshape(config["GRID_NUM"][0], config["GRID_NUM"][1])
+        z2y = z2y.reshape(config["GRID_NUM"][0], config["GRID_NUM"][1])
 
         # Start pipeline
-        device.startPipeline(create_pipeline(lensPosition=lensPosition))
+        device.startPipeline(
+            create_pipeline(
+                blob=blob, lensPosition=lensPosition, passthroughs=False, **config
+            )
+        )
         q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)  # type: ignore
 
         # Main loop
@@ -108,13 +121,13 @@ with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as d
             msgs = q_nn.get()
             grids = msgs.getLayerFp16("out")
             grids = np.asarray(grids).reshape(
-                GRID_NUM_H, GRID_NUM_W, 2
+                config["GRID_NUM"][0], config["GRID_NUM"][1], 2
             )  # label,z(in m)
 
             # Sending obstacle lacations
             if current_time - last_message_time >= message_interval_min:
-                for i in range(GRID_NUM_H):
-                    for j in range(GRID_NUM_W):
+                for i in range(config["GRID_NUM"][0]):
+                    for j in range(config["GRID_NUM"][1]):
                         if grids[i][j][0] > 0:  # label>1
                             z = grids[i][j][1]  # depth(z) in m
                             x = z2x[i][j] * z  # in m
@@ -128,8 +141,8 @@ with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as d
                                 float(z),  # Forward, in m
                                 float(x),  # Right, in m
                                 float(-y),  # Down, in m
-                                float(MIN_DISTANCE),  # in m
-                                float(MAX_DISTANCE),  # in m
+                                float(config["MIN_DISTANCE"]),  # in m
+                                float(config["MAX_DISTANCE"]),  # in m
                             )
                             print(f"{current_time} x:{x:.2f}m y:{y:.2f}m z:{z:.2f}m")
                 last_message_time = current_time

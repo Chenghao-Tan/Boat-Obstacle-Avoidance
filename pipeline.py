@@ -1,10 +1,8 @@
 import depthai as dai
 
 
-def create_pipeline(**kwargs):
-    blob = dai.OpenVINO.Blob("./640_360_(10_10).blob")  # TODO MODEL PATH
-    for name, tensorInfo in blob.networkInputs.items():
-        print(name, tensorInfo.dims)
+def create_pipeline(blob, lensPosition, passthroughs=False, **kwargs):
+    # Get INPUT_SHAPE automatically
     INPUT_SHAPE = blob.networkInputs["rgb"].dims[:2]
 
     # Start defining a pipeline
@@ -13,7 +11,10 @@ def create_pipeline(**kwargs):
     # RGB camera
     cam = pipeline.create(dai.node.ColorCamera)
     cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-    cam.setIspScale((1, 3), (1, 3))  # TODO RGB->640x360
+    if "ISP_SCALE" in kwargs:
+        cam.setIspScale(*kwargs["ISP_SCALE"])  # Keep 16:9
+    else:
+        cam.setIspScale((1, 3), (1, 3))  # RGB->640x360
     cam.setBoardSocket(dai.CameraBoardSocket.RGB)
     cam.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
     cam.setPreviewSize(*INPUT_SHAPE)
@@ -21,10 +22,7 @@ def create_pipeline(**kwargs):
 
     # For now, RGB needs fixed focus to properly align with depth
     # This value was used during calibration
-    if "lensPosition" in kwargs:
-        cam.initialControl.setManualFocus(kwargs["lensPosition"])
-    else:
-        raise Exception("Missing arg: lensPosition")
+    cam.initialControl.setManualFocus(lensPosition)
 
     # Neural network
     segmentation_nn = pipeline.create(dai.node.NeuralNetwork)
@@ -53,22 +51,31 @@ def create_pipeline(**kwargs):
     left.out.link(stereo.left)
     right.out.link(stereo.right)
 
-    # Stereo mode  # TODO
-    stereo.setExtendedDisparity(True)
-    stereo.setSubpixel(False)
+    # Stereo mode
+    if "EXTENDED_DISPARITY" in kwargs:
+        stereo.setExtendedDisparity(kwargs["EXTENDED_DISPARITY"])
+    else:
+        stereo.setExtendedDisparity(False)
+    if "SUBPIXEL" in kwargs:
+        stereo.setSubpixel(kwargs["SUBPIXEL"])
+    else:
+        stereo.setSubpixel(True)
 
-    # Depth post processing  # TODO
+    # Depth post processing
     # WARNING: MAY SIGNIFICANTLY INCREASE DEPTH MAP'S LATENCY!!!
     config = stereo.initialConfig.get()
-    config.postProcessing.decimationFilter.decimationFactor = 1  # type: ignore
-    config.postProcessing.speckleFilter.enable = False  # type: ignore
-    config.postProcessing.temporalFilter.enable = False  # type: ignore
-    config.postProcessing.spatialFilter.enable = False  # type: ignore
+    config.postProcessing.decimationFilter.decimationFactor = kwargs["DECIMATION_FACTOR"] if "DECIMATION_FACTOR" in kwargs else 1  # type: ignore
+    config.postProcessing.speckleFilter.enable = kwargs["SPECKLE_FILTER"] if "SPECKLE_FILTER" in kwargs else False  # type: ignore
+    config.postProcessing.temporalFilter.enable = kwargs["TEMPORAL_FILTER"] if "TEMPORAL_FILTER" in kwargs else False  # type: ignore
+    config.postProcessing.spatialFilter.enable = kwargs["SPATIAL_FILTER"] if "SPATIAL_FILTER" in kwargs else False  # type: ignore
 
-    # Depth thresholds  # TODO
-    stereo.setConfidenceThreshold(255)
-    config.postProcessing.thresholdFilter.minRange = 200  # type: ignore
-    config.postProcessing.thresholdFilter.maxRange = 35000  # type: ignore
+    # Depth thresholds
+    if "CONFIDENCE_THRESHOLD" in kwargs:
+        stereo.setConfidenceThreshold(kwargs["CONFIDENCE_THRESHOLD"])
+    else:
+        stereo.setConfidenceThreshold(190)
+    config.postProcessing.thresholdFilter.minRange = int(kwargs["MIN_DISTANCE"] * 1000) if "MIN_DISTANCE" in kwargs else 350  # type: ignore
+    config.postProcessing.thresholdFilter.maxRange = int(kwargs["MAX_DISTANCE"] * 1000) if "MAX_DISTANCE" in kwargs else 35000  # type: ignore
     stereo.initialConfig.set(config)
 
     # Depth output linked to NN
@@ -80,13 +87,12 @@ def create_pipeline(**kwargs):
     segmentation_nn.out.link(xout_nn.input)
 
     # For test
-    if "passthroughs" in kwargs:
-        if kwargs["passthroughs"] is True:
-            xout_img = pipeline.create(dai.node.XLinkOut)
-            xout_img.setStreamName("img")
-            segmentation_nn.passthroughs["rgb"].link(xout_img.input)
-            xout_depth = pipeline.create(dai.node.XLinkOut)
-            xout_depth.setStreamName("depth")
-            segmentation_nn.passthroughs["depth"].link(xout_depth.input)
+    if passthroughs:
+        xout_img = pipeline.create(dai.node.XLinkOut)
+        xout_img.setStreamName("img")
+        segmentation_nn.passthroughs["rgb"].link(xout_img.input)
+        xout_depth = pipeline.create(dai.node.XLinkOut)
+        xout_depth.setStreamName("depth")
+        segmentation_nn.passthroughs["depth"].link(xout_depth.input)
 
     return pipeline

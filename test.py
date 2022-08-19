@@ -3,13 +3,15 @@ import time
 import cv2
 import depthai as dai
 import numpy as np
+import yaml
 
 from pipeline import create_pipeline
 from z2xy import z2xy_coefficient, z2xy_coefficient_fov
 
-GRID_NUM_H = 10  # TODO
-GRID_NUM_W = 10  # TODO
-INPUT_SHAPE = (640, 360)  # TODO
+# Reading config
+with open("config.yaml") as f:  # Read only
+    config = yaml.safe_load(f)
+    print(f"Config: {config}")
 
 
 class FPSHandler:
@@ -30,6 +32,12 @@ with dai.Device() as device:
     device.setLogLevel(dai.LogLevel.DEBUG)
     device.setLogOutputLevel(dai.LogLevel.DEBUG)
 
+    # Loading blob
+    blob = dai.OpenVINO.Blob(config["MODEL_PATH"])
+    for name, tensorInfo in blob.networkInputs.items():
+        print(name, tensorInfo.dims)
+    INPUT_SHAPE = blob.networkInputs["rgb"].dims[:2]  # Auto INPUT_SHAPE
+
     # Getting calibration data
     try:
         calibData = device.readCalibration2()
@@ -38,7 +46,7 @@ with dai.Device() as device:
         print(f"RGB Cam lensPosition: {lensPosition}")
 
         intrinsics = calibData.getCameraIntrinsics(
-            dai.CameraBoardSocket.RGB, *INPUT_SHAPE
+            dai.CameraBoardSocket.RGB, *INPUT_SHAPE  # type: ignore
         )
         print(f"RGB Cam intrinsics: {intrinsics}")
 
@@ -48,24 +56,33 @@ with dai.Device() as device:
         raise Exception("Fail to get calibration data!")
 
     # Generating fixed z to x,y coefficient
-    assert INPUT_SHAPE[1] % GRID_NUM_H == 0
-    assert INPUT_SHAPE[0] % GRID_NUM_W == 0
-    grid_height = INPUT_SHAPE[1] // GRID_NUM_H
-    grid_width = INPUT_SHAPE[0] // GRID_NUM_W
-    # Use intrinsic matrix
-    z2x, z2y = z2xy_coefficient(
-        grid_height, grid_width, GRID_NUM_H, GRID_NUM_W, np.array(intrinsics)
-    )
-    # Use HFOV only
-    """
-    z2x, z2y = z2xy_coefficient_fov(
-        grid_height, grid_width, GRID_NUM_H, GRID_NUM_W, hfov
-    )
-    """
-    z2x = z2x.reshape(GRID_NUM_H, GRID_NUM_W)
-    z2y = z2y.reshape(GRID_NUM_H, GRID_NUM_W)
+    assert INPUT_SHAPE[1] % config["GRID_NUM"][0] == 0
+    assert INPUT_SHAPE[0] % config["GRID_NUM"][1] == 0
+    grid_height = INPUT_SHAPE[1] // config["GRID_NUM"][0]
+    grid_width = INPUT_SHAPE[0] // config["GRID_NUM"][1]
+    if config["USE_INTRINSIC"]:
+        # Use intrinsic matrix
+        z2x, z2y = z2xy_coefficient(
+            grid_height,
+            grid_width,
+            config["GRID_NUM"][0],
+            config["GRID_NUM"][1],
+            np.array(intrinsics),
+        )
+    else:
+        # Use HFOV only
+        z2x, z2y = z2xy_coefficient_fov(
+            grid_height, grid_width, config["GRID_NUM"][0], config["GRID_NUM"][1], hfov
+        )
+    z2x = z2x.reshape(config["GRID_NUM"][0], config["GRID_NUM"][1])
+    z2y = z2y.reshape(config["GRID_NUM"][0], config["GRID_NUM"][1])
 
-    device.startPipeline(create_pipeline(lensPosition=lensPosition, passthroughs=True))
+    # Start pipeline
+    device.startPipeline(
+        create_pipeline(
+            blob=blob, lensPosition=lensPosition, passthroughs=True, **config
+        )
+    )
     q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)  # type: ignore
     q_img = device.getOutputQueue(name="img", maxSize=4, blocking=False)  # type: ignore
     q_depth = device.getOutputQueue(name="depth", maxSize=4, blocking=False)  # type: ignore
@@ -78,7 +95,9 @@ with dai.Device() as device:
         depth = q_depth.get().getFrame()
         fps.next_iter()
 
-        grids = np.asarray(grids).reshape(GRID_NUM_H, GRID_NUM_W, 2)  # label,depth(z)
+        grids = np.asarray(grids).reshape(
+            config["GRID_NUM"][0], config["GRID_NUM"][1], 2
+        )  # label,depth(z)
         depth = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).astype(
             np.uint8
         )
@@ -86,31 +105,31 @@ with dai.Device() as device:
         blend = cv2.addWeighted(img, 0.5, depth, 0.5, 0)
         blend = cv2.resize(blend, (1280, 720))  # Force 720P for bigger display
 
-        for i in range(1, GRID_NUM_H):
+        for i in range(1, config["GRID_NUM"][0]):
             cv2.line(
                 blend,
-                (0, int(blend.shape[0] * i / GRID_NUM_H)),
-                (blend.shape[1] - 1, int(blend.shape[0] * i / GRID_NUM_H)),
+                (0, int(blend.shape[0] * i / config["GRID_NUM"][0])),
+                (blend.shape[1] - 1, int(blend.shape[0] * i / config["GRID_NUM"][0])),
                 color=(255, 255, 255),
                 thickness=1,
             )
-        for i in range(1, GRID_NUM_W):
+        for i in range(1, config["GRID_NUM"][1]):
             cv2.line(
                 blend,
-                (int(blend.shape[1] * i / GRID_NUM_W), 0),
-                (int(blend.shape[1] * i / GRID_NUM_W), blend.shape[0] - 1),
+                (int(blend.shape[1] * i / config["GRID_NUM"][1]), 0),
+                (int(blend.shape[1] * i / config["GRID_NUM"][1]), blend.shape[0] - 1),
                 color=(255, 255, 255),
                 thickness=1,
             )
 
-        for i in range(GRID_NUM_H):
-            for j in range(GRID_NUM_W):
+        for i in range(config["GRID_NUM"][0]):
+            for j in range(config["GRID_NUM"][1]):
                 cv2.putText(
                     blend,
                     "label:{:d}".format(grids[i][j][0].astype(np.uint8)),
                     (
-                        int(blend.shape[1] * j / GRID_NUM_W) + 3,
-                        int(blend.shape[0] * i / GRID_NUM_H) + 12,
+                        int(blend.shape[1] * j / config["GRID_NUM"][1]) + 3,
+                        int(blend.shape[0] * i / config["GRID_NUM"][0]) + 12,
                     ),
                     cv2.FONT_HERSHEY_TRIPLEX,
                     0.4,
@@ -120,8 +139,8 @@ with dai.Device() as device:
                     blend,
                     "x:{:.1f}m".format(grids[i][j][1] * z2x[i][j]),
                     (
-                        int(blend.shape[1] * j / GRID_NUM_W) + 3,
-                        int(blend.shape[0] * i / GRID_NUM_H) + 24,
+                        int(blend.shape[1] * j / config["GRID_NUM"][1]) + 3,
+                        int(blend.shape[0] * i / config["GRID_NUM"][0]) + 24,
                     ),
                     cv2.FONT_HERSHEY_TRIPLEX,
                     0.4,
@@ -131,8 +150,8 @@ with dai.Device() as device:
                     blend,
                     "y:{:.1f}m".format(grids[i][j][1] * z2y[i][j]),
                     (
-                        int(blend.shape[1] * j / GRID_NUM_W) + 3,
-                        int(blend.shape[0] * i / GRID_NUM_H) + 36,
+                        int(blend.shape[1] * j / config["GRID_NUM"][1]) + 3,
+                        int(blend.shape[0] * i / config["GRID_NUM"][0]) + 36,
                     ),
                     cv2.FONT_HERSHEY_TRIPLEX,
                     0.4,
@@ -142,8 +161,8 @@ with dai.Device() as device:
                     blend,
                     "z:{:.1f}m".format(grids[i][j][1]),
                     (
-                        int(blend.shape[1] * j / GRID_NUM_W) + 3,
-                        int(blend.shape[0] * i / GRID_NUM_H) + 48,
+                        int(blend.shape[1] * j / config["GRID_NUM"][1]) + 3,
+                        int(blend.shape[0] * i / config["GRID_NUM"][0]) + 48,
                     ),
                     cv2.FONT_HERSHEY_TRIPLEX,
                     0.4,
