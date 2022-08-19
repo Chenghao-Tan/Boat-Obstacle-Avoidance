@@ -4,16 +4,32 @@
 - Python 3.9+ is recommended.
 - Clone this repository, then run in its root:
     ```console
+    sudo apt install pip libatlas-base-dev
     pip install -U --prefer-binary -r requirements.txt
     ```
 
 ### Hardware (raspberry pi):
 - Wiring diagram:
 ![Wiring diagram](./doc/diagram.png)
-- Add these to config.txt, then reboot:
+- Open raspberry pi's UART:
+    - Run:
+        ```console
+        sudo raspi-config
+        ```
+    - Select: `Interface Options`->`Serial Port`->(serial login shell) `No`->(enable serial port) `Yes`
+- Add this to `/boot/config.txt`, then reboot:
     ```text
-    enable_uart=1
     dtoverlay=miniuart-bt
+    ```
+
+### Troubleshooting
+1.  ```console
+    [warning] Insufficient permissions to communicate with X_LINK_BOOTLOADER device with name "1.1.3". Make sure udev rules are set
+    ```
+    Run:
+    ```console
+    echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="03e7", MODE="0666"' | sudo tee /etc/udev/rules.d/80-movidius.rules
+    sudo udevadm control --reload-rules && sudo udevadm trigger
     ```
 
 

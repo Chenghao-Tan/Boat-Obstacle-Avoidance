@@ -56,8 +56,8 @@ heartbeat_thread.start()
 
 
 # Main
-with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as device:
-    try:
+try:
+    with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as device:
         # Loading blob
         blob = dai.OpenVINO.Blob(config["MODEL_PATH"])
         for name, tensorInfo in blob.networkInputs.items():
@@ -147,11 +147,11 @@ with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as d
                             print(f"{current_time} x:{x:.2f}m y:{y:.2f}m z:{z:.2f}m")
                 last_message_time = current_time
 
-    except Exception as e:
-        print(e)
+except Exception as e:
+    print(e)
 
-    finally:
-        print("Exiting...")
-        exit = True
-        heartbeat_thread.join()
-        connection.close()
+finally:
+    print("Exiting...")
+    exit = True
+    heartbeat_thread.join()
+    connection.close()

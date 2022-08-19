@@ -1,5 +1,6 @@
 depthai
 numpy
+pyserial
 pymavlink
 opencv-python
 pyyaml
