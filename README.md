@@ -1,4 +1,8 @@
 # Boat-Obstacle-Avoidance
+## Description
+This repository contains scripts that allow you to use the Luxonis OAK-D series camera as a visual obstacle avoidance sensor for ArduPilot boats. It also provides precompiled AI models for water segmentation required by the scripts. For now, you will need a companion computer like Raspberry Pi.
+
+
 ## Prepare
 ### Software:
 - Python 3.9+ is recommended.
@@ -61,7 +65,7 @@ The settings are stored in **config.yaml**.
 
 
 ## AI Model
-**Use a modified DDRNet [here](https://github.com/Agent-Birkhoff/DDRNet).**
+**Use a modified DDRNet [here](https://github.com/Chenghao-Tan/DDRNet).**
 - Naming rules:
     - resolution (*W_H*)
     - resolution + grid number on each axis (*W_H_(GW_GH)*)
@@ -77,4 +81,4 @@ The settings are stored in **config.yaml**.
 ## OAK-D-IoT Branch
 **WARNING: This branch CAN NOT work properly for a long time!**
 
-You might want to check [OAK-D-IoT branch](https://github.com/Agent-Birkhoff/Boat-Obstacle-Avoidance/tree/OAK-D-IoT) if you have OAK-D-IoT series cameras. Any help in debugging this branch is welcomed!
+You might want to check [OAK-D-IoT branch](https://github.com/Chenghao-Tan/Boat-Obstacle-Avoidance/tree/OAK-D-IoT) if you have OAK-D-IoT series cameras. Any help in debugging this branch is welcomed!
