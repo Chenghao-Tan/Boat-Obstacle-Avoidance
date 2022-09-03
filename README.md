@@ -1,7 +1,7 @@
 # Boat-Obstacle-Avoidance
 **WARNING: Due to an unknown bug in depthai's SPI implementation, this program CAN NOT work properly for a long time.**
 
-**Use model from [DDRNet OAK-D-IoT branch](https://github.com/Agent-Birkhoff/DDRNet/tree/OAK-D-IoT)!!!**
+**Use model from [DDRNet OAK-D-IoT branch](https://github.com/Chenghao-Tan/DDRNet/tree/OAK-D-IoT)!!!**
 
 
 - **vpu_setup**: Run in CLI. Used for uploading the program to VPU's flash. See the script detail for more usage.
