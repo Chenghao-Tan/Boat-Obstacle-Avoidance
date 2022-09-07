@@ -62,6 +62,9 @@ The settings are stored in **config.yaml**.
     echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="03e7", MODE="0666"' | sudo tee /etc/udev/rules.d/80-movidius.rules
     sudo udevadm control --reload-rules && sudo udevadm trigger
     ```
+2. Something like **Couldn't read data from stream "__log"&"__timesync"**:
+![Troubleshooting_2](./doc/Troubleshooting_2.png)
+Check your power supply first. In my case, Raspberry Pi 400's USB can't provide enough power, and the DC jack on the OAK-D-IoT-75 can't work as auxiliary power normally. Please consider using a USB Y cable and individual 5V power adapter.
 
 
 ## AI Model
