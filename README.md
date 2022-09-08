@@ -4,6 +4,8 @@ This repository contains scripts that allow you to use the Luxonis OAK-D series 
 
 
 ## Prepare
+**If you are using a Raspberry Pi, it is strongly recommended to use [depthai's official images](https://drive.google.com/drive/folders/1O50jPpGj_82jkAokdrsG--k9OBQfMXK5?usp=sharing) (OAK_CM4_POE, 8 GB microSD card or larger.). It has many necessary packages pre-installed and includes settings such as `udev rules`, which can greatly reduce the preparation time.**
+
 ### Software:
 - Python 3.9+ is recommended.
 - Clone this repository, then run in its root:
