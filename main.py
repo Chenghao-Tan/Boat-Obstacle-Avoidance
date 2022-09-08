@@ -22,6 +22,15 @@ with open("config.yaml") as f:  # Read only
     print(f"Config: {config}")
 
 
+# Global
+start_time = round(time.time() * 1000)  # in ms
+
+
+def get_current_time():
+    global start_time
+    return round(time.time() * 1000 - start_time)  # in ms
+
+
 exit = False
 connection = mavutil.mavlink_connection(
     device=config["DEVICE_STR"],
@@ -31,33 +40,115 @@ connection = mavutil.mavlink_connection(
     autoreconnect=True,
     force_connected=True,
 )
-start_time = int(round(time.time() * 1000))  # in ms
-get_current_time = lambda: int(round(time.time() * 1000) - start_time)  # in ms
-message_interval_min = 1000 / config["MESSAGE_RATE_MAX"]  # in ms
+lock = threading.Lock()
+obstacle_info = None  # Buffer
+z2x = z2y = None
 
 
 # Heartbeat thread
 def heartbeat():
-    global exit, connection
-    while not exit:
-        connection.mav.heartbeat_send(
-            mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,
-            mavutil.mavlink.MAV_AUTOPILOT_INVALID,
-            0,
-            0,
-            0,
-        )
-        print(f"{get_current_time()} Heartbeat sent")
-        time.sleep(1)  # 1Hz
+    global exit
+    try:
+        while not exit:
+            connection.mav.heartbeat_send(
+                mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,
+                mavutil.mavlink.MAV_AUTOPILOT_INVALID,
+                0,
+                0,
+                0,
+            )
+            print(f"\033[1;45m{get_current_time()}\033[0m Heartbeat sent")
+            time.sleep(1)  # 1Hz
+
+    except Exception as e:
+        print(f"\033[1;45m{get_current_time()}\033[0m {e}")
+
+    finally:
+        print(f"\033[1;45m{get_current_time()}\033[0m Heartbeat stopped")
+        exit = True
 
 
 heartbeat_thread = threading.Thread(target=heartbeat)
 heartbeat_thread.start()
 
 
+# Message thread
+def message():
+    global exit, obstacle_info
+    try:
+        message_interval_min = 1 / config["MESSAGE_RATE_MAX"]  # in s
+        while not exit:
+            for i in range(config["GRID_NUM"][0]):
+                for j in range(config["GRID_NUM"][1]):
+                    current_time = get_current_time()
+                    lock.acquire()
+
+                    if obstacle_info is None or z2x is None or z2y is None:
+                        # Do nothing (no data in the buffer)
+                        lock.release()
+                    elif obstacle_info[i][j][0] > 0:  # label>1
+                        # Sending obstacle locations
+                        z = obstacle_info[i][j][1]  # depth(z) in m
+                        lock.release()
+
+                        x = z2x[i][j] * z  # in m
+                        y = z2y[i][j] * z  # in m
+
+                        connection.mav.obstacle_distance_3d_send(
+                            current_time,  # UNIX Timestamp in ms
+                            4,  # MAV_DISTANCE_SENSOR_UNKNOWN
+                            12,  # MAV_FRAME_BODY_FRD
+                            65535,  # UINT16_MAX (Unknown)
+                            float(z),  # Forward, in m
+                            float(x),  # Right, in m
+                            float(-y),  # Down, in m
+                            float(config["MIN_DISTANCE"]),  # in m
+                            float(config["MAX_DISTANCE"]),  # in m
+                        )
+                        print(
+                            f"\033[1;44m{current_time}\033[0m x:{x:.2f}m y:{y:.2f}m z:{z:.2f}m"
+                        )
+                    else:
+                        # Sending "no obstacle" message (MAX_DISTANCE+1)
+                        lock.release()
+
+                        connection.mav.obstacle_distance_3d_send(
+                            current_time,  # UNIX Timestamp in ms
+                            4,  # MAV_DISTANCE_SENSOR_UNKNOWN
+                            12,  # MAV_FRAME_BODY_FRD
+                            65535,  # UINT16_MAX (Unknown)
+                            float(config["MAX_DISTANCE"] + 1),  # Forward, in m
+                            float(config["MAX_DISTANCE"] + 1),  # Right, in m
+                            float(config["MAX_DISTANCE"] + 1),  # Down, in m
+                            float(config["MIN_DISTANCE"]),  # in m
+                            float(config["MAX_DISTANCE"]),  # in m
+                        )
+                        print(f"\033[1;44m{current_time}\033[0m No obstacle")
+
+                    time.sleep(message_interval_min)  # MESSAGE_RATE_MAX Hz
+
+            # Force refresh
+            lock.acquire()
+            obstacle_info = None
+            lock.release()
+
+    except Exception as e:
+        print(f"\033[1;44m{get_current_time()}\033[0m {e}")
+
+    finally:
+        print(f"\033[1;44m{get_current_time()}\033[0mMessage sending stopped")
+        exit = True
+
+
+message_thread = threading.Thread(target=message)
+message_thread.start()
+
+
 # Main
 try:
-    with dai.Device(version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True) as device:
+    with dai.Device(
+        version=dai.OpenVINO.Version.VERSION_2021_4, usb2Mode=True
+    ) as device:
         # Loading blob
         blob = dai.OpenVINO.Blob(config["MODEL_PATH"])
         for name, tensorInfo in blob.networkInputs.items():
@@ -112,11 +203,8 @@ try:
         )
         q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)  # type: ignore
 
-        # Main loop
-        last_message_time = 0  # in ms
-        while True:
-            current_time = get_current_time()
-
+        # Refresh obstacle_info
+        while not exit:
             # Try to get label and depth(z)
             msgs = q_nn.get()
             grids = msgs.getLayerFp16("out")
@@ -124,34 +212,18 @@ try:
                 config["GRID_NUM"][0], config["GRID_NUM"][1], 2
             )  # label,z(in m)
 
-            # Sending obstacle lacations
-            if current_time - last_message_time >= message_interval_min:
-                for i in range(config["GRID_NUM"][0]):
-                    for j in range(config["GRID_NUM"][1]):
-                        if grids[i][j][0] > 0:  # label>1
-                            z = grids[i][j][1]  # depth(z) in m
-                            x = z2x[i][j] * z  # in m
-                            y = z2y[i][j] * z  # in m
-
-                            connection.mav.obstacle_distance_3d_send(
-                                current_time,  # UNIX Timestamp in ms
-                                4,  # MAV_DISTANCE_SENSOR_UNKNOWN
-                                12,  # MAV_FRAME_BODY_FRD
-                                65535,  # UINT16_MAX (Unknown)
-                                float(z),  # Forward, in m
-                                float(x),  # Right, in m
-                                float(-y),  # Down, in m
-                                float(config["MIN_DISTANCE"]),  # in m
-                                float(config["MAX_DISTANCE"]),  # in m
-                            )
-                            print(f"{current_time} x:{x:.2f}m y:{y:.2f}m z:{z:.2f}m")
-                last_message_time = current_time
+            # Refresh buffer
+            lock.acquire()
+            obstacle_info = grids
+            lock.release()
+            print(f"\033[1;46m{get_current_time()}\033[0m Buffer refreshed")
 
 except Exception as e:
-    print(e)
+    print(f"\033[1;46m{get_current_time()}\033[0m {e}")
 
 finally:
-    print("Exiting...")
+    print(f"\033[1;46m{get_current_time()}\033[0mExiting...")
     exit = True
+    message_thread.join()
     heartbeat_thread.join()
     connection.close()
