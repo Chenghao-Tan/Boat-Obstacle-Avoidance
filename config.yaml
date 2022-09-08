@@ -1,7 +1,7 @@
 # MAVLink Interface
 DEVICE_STR: "/dev/ttyAMA0"
 BAUD_RATE: 115200
-MESSAGE_RATE_MAX: 30  # in Hz
+MESSAGE_RATE_MAX: 1000  # in Hz
 
 # AI Model Settings
 MODEL_PATH: "./640_360_(10_10).blob"
