@@ -79,8 +79,14 @@ def message():
         message_interval_min = 1 / config["MESSAGE_RATE_MAX"]  # in s
         while not exit:
             no_obstacle = True
-            for i in range(config["GRID_NUM"][0]):
-                for j in range(config["GRID_NUM"][1]):
+            for i in range(
+                config["IGNORE_GRIDS"][0],
+                config["GRID_NUM"][0] - config["IGNORE_GRIDS"][1],
+            ):
+                for j in range(
+                    config["IGNORE_GRIDS"][2],
+                    config["GRID_NUM"][1] - config["IGNORE_GRIDS"][3],
+                ):
                     while True:  # Wait until the data is available
                         if exit:  # In case of getting stuck
                             return

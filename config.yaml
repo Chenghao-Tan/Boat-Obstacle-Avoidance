@@ -1,3 +1,7 @@
+#########################################################
+# Please refer to the README before changing this file! #
+#########################################################
+
 # MAVLink Interface
 DEVICE_STR: "/dev/ttyAMA0"
 BAUD_RATE: 115200
@@ -11,6 +15,13 @@ GRID_NUM:
 ISP_SCALE:
   - 1  # numerator
   - 3  # denominator
+
+# Ignore Area
+IGNORE_GRIDS:
+  - 1  # Upper
+  - 1  # Lower
+  - 0  # Left
+  - 0  # Right
 
 # Stereo Mode
 EXTENDED_DISPARITY: False
