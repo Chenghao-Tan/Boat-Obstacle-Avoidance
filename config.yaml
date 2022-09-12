@@ -1,13 +1,13 @@
 # MAVLink Interface
 DEVICE_STR: "/dev/ttyAMA0"
 BAUD_RATE: 115200
-MESSAGE_RATE_MAX: 1000  # in Hz
+MESSAGE_RATE_MAX: 30  # in Hz
 
 # AI Model Settings
-MODEL_PATH: "./640_360_(10_10).blob"
+MODEL_PATH: "./640_360_(5_5)_5shaves.blob"
 GRID_NUM:
-  - 10  # H
-  - 10  # W
+  - 5  # H (Must be the same as the value set in the model!!!)
+  - 5  # W (Must be the same as the value set in the model!!!)
 ISP_SCALE:
   - 1  # numerator
   - 3  # denominator
