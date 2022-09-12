@@ -81,7 +81,10 @@ def message():
             no_obstacle = True
             for i in range(config["GRID_NUM"][0]):
                 for j in range(config["GRID_NUM"][1]):
-                    while True:  # wait until the data is available
+                    while True:  # Wait until the data is available
+                        if exit:  # In case of getting stuck
+                            return
+
                         lock.acquire()
                         if obstacle_info is None or z2x is None or z2y is None:
                             # Do nothing (no data in the buffer)
