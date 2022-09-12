@@ -78,22 +78,30 @@ def message():
     try:
         message_interval_min = 1 / config["MESSAGE_RATE_MAX"]  # in s
         while not exit:
+            no_obstacle = True
             for i in range(config["GRID_NUM"][0]):
                 for j in range(config["GRID_NUM"][1]):
-                    current_time = get_current_time()
-                    lock.acquire()
+                    while True:  # wait until the data is available
+                        lock.acquire()
+                        if obstacle_info is None or z2x is None or z2y is None:
+                            # Do nothing (no data in the buffer)
+                            lock.release()
+                            time.sleep(message_interval_min)  # Skip one message
+                        else:
+                            # Get grid data
+                            grid = obstacle_info[i][j].copy()  # Deep copy
+                            lock.release()
+                            break
 
-                    if obstacle_info is None or z2x is None or z2y is None:
-                        # Do nothing (no data in the buffer)
-                        lock.release()
-                    elif obstacle_info[i][j][0] > 0:  # label>1
-                        # Sending obstacle locations
-                        z = obstacle_info[i][j][1]  # depth(z) in m
-                        lock.release()
+                    if grid[0] > 0:  # label>0
+                        # Send obstacle location
+                        no_obstacle = False  # Got obstacle in this frame
 
+                        z = grid[1]  # depth(z) in m
                         x = z2x[i][j] * z  # in m
                         y = z2y[i][j] * z  # in m
 
+                        current_time = get_current_time()
                         connection.mav.obstacle_distance_3d_send(
                             current_time,  # UNIX Timestamp in ms
                             4,  # MAV_DISTANCE_SENSOR_UNKNOWN
@@ -108,24 +116,27 @@ def message():
                         print(
                             f"\033[1;44m{current_time}\033[0m x:{x:.2f}m y:{y:.2f}m z:{z:.2f}m"
                         )
+                        time.sleep(message_interval_min)  # MESSAGE_RATE_MAX Hz
                     else:
-                        # Sending "no obstacle" message (MAX_DISTANCE+1)
-                        lock.release()
+                        # No message sent, no wait
+                        continue
 
-                        connection.mav.obstacle_distance_3d_send(
-                            current_time,  # UNIX Timestamp in ms
-                            4,  # MAV_DISTANCE_SENSOR_UNKNOWN
-                            12,  # MAV_FRAME_BODY_FRD
-                            65535,  # UINT16_MAX (Unknown)
-                            float(config["MAX_DISTANCE"] + 1),  # Forward, in m
-                            float(config["MAX_DISTANCE"] + 1),  # Right, in m
-                            float(config["MAX_DISTANCE"] + 1),  # Down, in m
-                            float(config["MIN_DISTANCE"]),  # in m
-                            float(config["MAX_DISTANCE"]),  # in m
-                        )
-                        print(f"\033[1;44m{current_time}\033[0m No obstacle")
-
-                    time.sleep(message_interval_min)  # MESSAGE_RATE_MAX Hz
+            if no_obstacle:
+                # Send "no obstacle" message (MAX_DISTANCE+1)
+                current_time = get_current_time()
+                connection.mav.obstacle_distance_3d_send(
+                    current_time,  # UNIX Timestamp in ms
+                    4,  # MAV_DISTANCE_SENSOR_UNKNOWN
+                    12,  # MAV_FRAME_BODY_FRD
+                    65535,  # UINT16_MAX (Unknown)
+                    float(config["MAX_DISTANCE"] + 1),  # Forward, in m
+                    float(config["MAX_DISTANCE"] + 1),  # Right, in m
+                    float(config["MAX_DISTANCE"] + 1),  # Down, in m
+                    float(config["MIN_DISTANCE"]),  # in m
+                    float(config["MAX_DISTANCE"]),  # in m
+                )
+                print(f"\033[1;44m{current_time}\033[0m No obstacle")
+                time.sleep(message_interval_min)  # MESSAGE_RATE_MAX Hz
 
             # Force refresh
             lock.acquire()
