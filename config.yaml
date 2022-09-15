@@ -8,13 +8,13 @@ BAUD_RATE: 115200
 MESSAGE_RATE_MAX: 30  # in Hz
 
 # AI Model Settings
-MODEL_PATH: "./640_360_(5_5)_0.9conf_0.2thres_5shaves.blob"
+MODEL_PATH: "./BEST.blob"
 ISP_SCALE:
   - 1  # numerator
   - 3  # denominator
 
 # Obstacle Detection
-HOST_SIDE: False
+HOST_SIDE: True
 GRID_NUM:
   - 5  # H
   - 5  # W

@@ -3,6 +3,7 @@ import numpy as np
 
 def detection(config, INPUT_SHAPE, mask, depth):
     mask = np.array(mask).reshape(INPUT_SHAPE[1], INPUT_SHAPE[0])
+    depth = depth.astype("float64")
 
     grid_num_h = config["GRID_NUM"][0]
     grid_num_w = config["GRID_NUM"][1]
@@ -23,7 +24,7 @@ def detection(config, INPUT_SHAPE, mask, depth):
     filtered = np.multiply(mask, depth)
     grids = (
         filtered.reshape(grid_num_h, grid_height, grid_num_w, grid_width)
-        .permute(0, 2, 1, 3)
+        .transpose(0, 2, 1, 3)
         .reshape(grid_num_h * grid_num_w, grid_height * grid_width)
     )
     non_zero_num = np.where(grids > 0, np.ones_like(grids), np.zeros_like(grids)).sum(
