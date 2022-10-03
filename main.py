@@ -13,6 +13,7 @@ import numpy as np
 import yaml
 from pymavlink import mavutil
 
+from host_side_detection import detection
 from pipeline import create_pipeline
 from z2xy import z2xy_coefficient, z2xy_coefficient_fov
 
@@ -222,12 +223,21 @@ try:
             )
         )
         q_nn = device.getOutputQueue(name="nn", maxSize=4, blocking=False)  # type: ignore
+        if config["HOST_SIDE"]:
+            q_depth = device.getOutputQueue(name="depth", maxSize=4, blocking=False)  # type: ignore
 
         # Refresh obstacle_info
         while not exit:
             # Try to get label and depth(z)
             msgs = q_nn.get()
-            grids = msgs.getLayerFp16("out")
+            nn = msgs.getLayerFp16("out")
+
+            if config["HOST_SIDE"]:
+                depth = q_depth.get().getFrame()
+                grids = detection(config, INPUT_SHAPE, mask=nn, depth=depth)
+            else:
+                grids = nn
+
             grids = np.asarray(grids).reshape(
                 config["GRID_NUM"][0], config["GRID_NUM"][1], 2
             )  # label,z(in m)

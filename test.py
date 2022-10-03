@@ -5,6 +5,7 @@ import depthai as dai
 import numpy as np
 import yaml
 
+from host_side_detection import detection
 from pipeline import create_pipeline
 from z2xy import z2xy_coefficient, z2xy_coefficient_fov
 
@@ -90,10 +91,15 @@ with dai.Device() as device:
 
     while True:
         msgs = q_nn.get()
-        grids = msgs.getLayerFp16("out")
+        nn = msgs.getLayerFp16("out")
         img = q_img.get().getCvFrame()
         depth = q_depth.get().getFrame()
         fps.next_iter()
+
+        if config["HOST_SIDE"]:
+            grids = detection(config, INPUT_SHAPE, mask=nn, depth=depth)
+        else:
+            grids = nn
 
         grids = np.asarray(grids).reshape(
             config["GRID_NUM"][0], config["GRID_NUM"][1], 2

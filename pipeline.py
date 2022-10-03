@@ -79,7 +79,12 @@ def create_pipeline(blob, lensPosition, passthroughs=False, **kwargs):
     stereo.initialConfig.set(config)
 
     # Depth output linked to NN
-    stereo.depth.link(segmentation_nn.inputs["depth"])
+    if kwargs["HOST_SIDE"]:
+        xout_depth = pipeline.create(dai.node.XLinkOut)
+        xout_depth.setStreamName("depth")
+        stereo.depth.link(xout_depth.input)
+    else:
+        stereo.depth.link(segmentation_nn.inputs["depth"])
 
     # NN output linked to XLinkOut
     xout_nn = pipeline.create(dai.node.XLinkOut)
@@ -91,8 +96,9 @@ def create_pipeline(blob, lensPosition, passthroughs=False, **kwargs):
         xout_img = pipeline.create(dai.node.XLinkOut)
         xout_img.setStreamName("img")
         segmentation_nn.passthroughs["rgb"].link(xout_img.input)
-        xout_depth = pipeline.create(dai.node.XLinkOut)
-        xout_depth.setStreamName("depth")
-        segmentation_nn.passthroughs["depth"].link(xout_depth.input)
+        if not kwargs["HOST_SIDE"]:
+            xout_depth = pipeline.create(dai.node.XLinkOut)
+            xout_depth.setStreamName("depth")
+            segmentation_nn.passthroughs["depth"].link(xout_depth.input)
 
     return pipeline

@@ -8,13 +8,19 @@ BAUD_RATE: 115200
 MESSAGE_RATE_MAX: 30  # in Hz
 
 # AI Model Settings
-MODEL_PATH: "./640_360_(5_5)_0.9conf_0.2thres_5shaves.blob"
-GRID_NUM:
-  - 5  # H (Must be the same as the value set in the model!!!)
-  - 5  # W (Must be the same as the value set in the model!!!)
+MODEL_PATH: "./blobs/640_360_(5_5)_0.9conf_0.2thres_5shaves.blob"
 ISP_SCALE:
   - 1  # numerator
   - 3  # denominator
+
+# Obstacle Detection
+HOST_SIDE: False
+GRID_NUM:  # Must be the same as the value set in the blob if HOST_SIDE is False
+  - 5  # H
+  - 5  # W
+# BELOW: Only work with host side detection
+GRID_THRESHOLD: 0.1
+MASK_THRESHOLD: 0.9
 
 # Ignore Area
 IGNORE_GRIDS:
