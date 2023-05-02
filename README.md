@@ -1,6 +1,8 @@
 # Boat-Obstacle-Avoidance
+**For the model, you can now generate a dataset from a set of photos taken from the on-boat camera's perspective to improve the model's performance in specific areas. See [DDRNet](https://github.com/Chenghao-Tan/DDRNet#use-sam-optional)->Use SAM.**
+
 ## Description
-This repository contains scripts that allow you to use the Luxonis OAK-D series camera as a visual obstacle avoidance sensor for ArduPilot boats. It also provides precompiled AI models for water segmentation required by the scripts. For now, you will need a companion computer like Raspberry Pi.
+This repository contains scripts that allow you to use the Luxonis OAK-D series camera as a visual obstacle avoidance sensor for ArduPilot boats. It also provides precompiled AI models for water segmentation required by the scripts. You will need a companion computer like Raspberry Pi.
 
 
 ## Prepare
