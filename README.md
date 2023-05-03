@@ -77,8 +77,8 @@ Check your power supply first. In my case, Raspberry Pi 400's USB can't provide 
     - resolution + grid number on each axis + confidence map threshold + in-grid obstacle pixel number threshold + number of shaves
     - example: W_H_(GW_GH)_CONF_THRES_SHAVES
 - Build your own model:
-    - Follow the instructions in that repository (**Prepare->Training->Export ONNX**). Make sure **net.extra_process(True)** and remember to set **IO resolution and grid settings** properly.
-    - Use the [blob converter](http://blobconverter.luxonis.com/) provided by Luxonis to convert the **ONNX** to **blob**. You can also use OpenVINO to do that locally (mo.py and compile_tool).
+    - Follow the instructions in that repository (**Prepare, Training, Export ONNX**). Make sure **net.pre_process.enable(True)**&**net.post_process.enable(True)** and remember to set **IO resolution and grid settings** properly.
+    - Use the [blob converter](https://blobconverter.luxonis.com/) provided by Luxonis to convert the **ONNX** to **blob**. You can also use OpenVINO to do that locally (mo.py and compile_tool).
         - OpenVINO version: **2021.4**
         - model optimizer params: **--data_type=FP16**
         - compile params: **-ip U8**
