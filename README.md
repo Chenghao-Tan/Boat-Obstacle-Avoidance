@@ -42,8 +42,12 @@ The settings are stored in **config.yaml**.
 - BAUD_RATE: UART baud rate (if using serial).
 - MESSAGE_RATE_MAX: Max reporting frequency, in Hz.
 - MODEL_PATH: Path to the blob.
-- GRID_NUM: Detection grid number on the vertical and horizontal axis (**must be compatible with the blob**).
 - ISP_SCALE: See [setIspScale](https://docs.luxonis.com/projects/api/en/latest/components/nodes/color_camera/#:~:text=setIspScale%28*,numerator%2C%20denominator%3E%20tuples). The scaled resolution must be bigger than the model's input. Using the same aspect ratio is highly recommended, or it will result in losing FOV.
+- HOST_SIDE: Whether to do the detection on the host side instead of within the model. (**Must be compatible with the blob**).
+- GRID_NUM: Number of detection grids on the vertical and horizontal axis, separately (**If HOST_SIDE is True, then must be compatible with the blob**).
+- GRID_THRESHOLD: When the proportion of obstacle pixels in the grid reaches this threshold, the grid is considered an obstacle. (**Only works when HOST_SIDE is True**).
+- MASK_THRESHOLD: Segmentation confidence threshold. (**Only works when HOST_SIDE is True**).
+- IGNORE_GRIDS: Ignores a specified number of grids near the edge of the image, counting from top/bottom/left/right separately.
 - EXTENDED_DISPARITY, SUBPIXEL: [Stereo mode](https://docs.luxonis.com/projects/api/en/latest/components/nodes/stereo_depth/). **You can only open at most one of them**.
     - Extended disparity mode allows detecting closer distance objects for the given baseline.
     - Subpixel mode improves the precision and is especially useful for long range measurements. It also helps for better estimating surface normals.

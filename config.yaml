@@ -14,11 +14,11 @@ ISP_SCALE:
   - 3  # denominator
 
 # Obstacle Detection
-HOST_SIDE: False
-GRID_NUM:  # Must be the same as the value set in the blob if HOST_SIDE is False
+HOST_SIDE: False  # Must always be the same as the value set in the blob
+GRID_NUM:  # If HOST_SIDE is False, then must be the same as the value set in the blob
   - 5  # H
   - 5  # W
-# BELOW: Only work with host side detection
+# The following two settings only work with host side detection
 GRID_THRESHOLD: 0.1
 MASK_THRESHOLD: 0.9
 
