@@ -51,7 +51,7 @@ The settings are stored in **config.yaml**.
 - EXTENDED_DISPARITY, SUBPIXEL: [Stereo mode](https://docs.luxonis.com/projects/api/en/latest/components/nodes/stereo_depth/). **You can only open at most one of them**.
     - Extended disparity mode allows detecting closer distance objects for the given baseline.
     - Subpixel mode improves the precision and is especially useful for long range measurements. It also helps for better estimating surface normals.
-- CONFIDENCE_THRESHOLD: 0-255, depth confidence threshold.
+- CONFIDENCE_THRESHOLD: 0-255, depth confidence threshold. LOWER the confidence value means better depth accuracy.
 - MIN_DISTANCE: Min depth threshold, in m.
 - MAX_DISTANCE: Max depth threshold, in m.
 - DECIMATION_FACTOR, SPECKLE_FILTER, TEMPORAL_FILTER, SPATIAL_FILTER: [Depth filters](https://docs.luxonis.com/projects/api/en/latest/components/nodes/stereo_depth/). **May significantly increase depth map's latency**.
